@@ -1,0 +1,12 @@
+import {build} from 'esbuild';
+import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
+import {resolve} from 'node:path';
+const root=import.meta.dirname;
+const encoded=['Clawd-Animator.glb','Clawd-Drumkit.glb'].map(name=>readFileSync(resolve(root,'assets',name)).toString('base64'));
+writeFileSync(resolve(root,'assets.generated.js'),`export const avatarData=${JSON.stringify(encoded[0])};export const kitData=${JSON.stringify(encoded[1])};`);
+const result=await build({entryPoints:[resolve(root,'app.js')],bundle:true,write:false,format:'iife',minify:true,target:'es2022',legalComments:'inline'});
+const js=result.outputFiles[0].text.replace(/<\/script/gi,'<\\/script');
+const notice=readFileSync(resolve(root,'node_modules/three/LICENSE'),'utf8');
+const html=readFileSync(resolve(root,'index.html'),'utf8').replace('__APP_CSS__',readFileSync(resolve(root,'styles.css'),'utf8')).replace('__APP_BUNDLE__','/* Three.js license\n'+notice+'\n*/\n'+js);
+const out=resolve(root,'dist');mkdirSync(out,{recursive:true});writeFileSync(resolve(out,'Clawd-Playground.html'),html);
+console.log(`Built self-contained playground: ${(html.length/1024).toFixed(0)} KB`);

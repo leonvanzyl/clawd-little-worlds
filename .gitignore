@@ -1,0 +1,11 @@
+node_modules/
+assets.generated.js
+*.log
+.env
+.env.*
+!.env.example
+inspect-face.mjs
+*.blend1
+*.blend2
+.DS_Store
+Thumbs.db

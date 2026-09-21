@@ -1,0 +1,17 @@
+{
+  "name": "clawd-little-worlds",
+  "version": "1.0.0",
+  "description": "An offline, interactive 3D Clawd playground with seven worlds and stepped skeletal animation.",
+  "private": true,
+  "scripts": {
+    "build": "node build.mjs",
+    "check": "node checks/expressions.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "type": "module",
+  "dependencies": {
+    "esbuild": "^0.28.2",
+    "three": "^0.186.0"
+  }
+}
