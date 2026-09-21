@@ -14,6 +14,8 @@ npm start
 
 Open the address printed by the server (normally `http://127.0.0.1:8765`) and choose **Claude Code**. If that port is already occupied, set the `PORT` environment variable to another free port before starting. Describe a website, watch the actual local preview update as files change, then send follow-up changes. The preview is an interactive browser iframe, not a recording. New starts a separate website; generated files live in `projects/<project-id>/` and are excluded from Git.
 
+Clawd sits large and centred over a website preview that fills the entire window. The compact prompt bar keeps the conversation folded by default; its chat button opens the formatted history. Questions and approvals open it automatically. The corner options menu contains Connection, New website, refresh and open controls. Explore website temporarily hides Clawd and the prompt so every part of the preview is available; Back to Clawd restores them.
+
 The official Claude Agent SDK orchestrates the installed Claude Code executable with **Opus and high effort**, using your existing CLI subscription session. Connection offers an Anthropic API key fallback. Keys remain in server memory and the Claude child process environment; they are never stored in this project's files, browser storage, or Git. Use subscription clears the fallback key. Stop the local server to discard its in-memory key.
 
 Clawd reacts to actual streamed events:

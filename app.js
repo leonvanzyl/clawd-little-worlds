@@ -64,7 +64,7 @@ function setCodeMode(on){
  state.codeMode=on;state.codingPhase='';setWorld(on?'desk':'playground');setMood('neutral');
  ground.visible=!on;worlds.desk.children.slice(0,2).forEach(o=>o.visible=!on);workerTeam.show(on);workProps.update(on,state.codingPhase,simTime);
  scene.background=on?null:new T.Color(worlds.playground.userData.color);scene.fog=on?null:new T.Fog(worlds.playground.userData.color,32,75);
- if(on){camera.position.set(4,5.5,19);orbit.target.set(0,2.2,.5);orbit.update()}resize();
+ if(on){camera.position.set(2.4,5.4,20);orbit.target.set(0,2.35,.45);orbit.update()}resize();
 }
 function setCodingPhase(phase){
  const previous=state.codingPhase;state.codingPhase=phase;if(!state.codeMode||previous===phase)return;
@@ -72,7 +72,7 @@ function setCodingPhase(phase){
  if(phase==='complete'){playFace('Happy');playBody('Wave');}
  else{playFace(phase==='error'?'Sad':phase==='waiting'?'Surprised':phase==='writing'?'Neutral':'Curious');playBody('Idle',false);}
 }
-function resize(){if(!renderer)return;const w=host.clientWidth,h=host.clientHeight,a=w/h,large=['mansion','pirate'].includes(state.world),f=Math.max(large?10.5:8.4,(large?14:12.5)/a);camera.left=-f*a/2;camera.right=f*a/2;camera.top=f/2;camera.bottom=-f/2;camera.updateProjectionMatrix();renderer.setPixelRatio(state.pixel?1:Math.min(devicePixelRatio,2));const width=state.pixel?Math.min(w,360):w;renderer.setSize(Math.round(width),Math.round(width/a),false);host.classList.toggle('pixelated',state.pixel)}
+function resize(){if(!renderer)return;const w=host.clientWidth,h=host.clientHeight;if(!w||!h)return;const a=w/h,large=['mansion','pirate'].includes(state.world),f=state.codeMode?Math.max(8.6,10.6/a):Math.max(large?10.5:8.4,(large?14:12.5)/a);camera.left=-f*a/2;camera.right=f*a/2;camera.top=f/2;camera.bottom=-f/2;camera.updateProjectionMatrix();renderer.setPixelRatio(state.pixel?1:Math.min(devicePixelRatio,2));const width=state.pixel?Math.min(w,360):w;renderer.setSize(Math.round(width),Math.round(width/a),false);host.classList.toggle('pixelated',state.pixel)}
 function playBody(name,once=true,rate=1){const next=bodyActions[name];if(!next)return;const prev=activeBody;if(prev&&prev!==next)prev.fadeOut(.22);next.reset().setEffectiveTimeScale(rate*(state.world==='moon'&&name==='Hop'?.65:1)).setEffectiveWeight(1).setLoop(once?T.LoopOnce:T.LoopRepeat,once?1:Infinity);next.clampWhenFinished=once;next.fadeIn(.22).play();activeBody=next;bodyName=name;host.dataset.action=name;if(name==='Drums')lastDrum=-1;updateProps()}
 function playFace(name){faceName=name;host.dataset.expression=name}
 function moodFace(){if(state.codeMode)return state.codingPhase==='complete'?'Happy':state.codingPhase==='error'?'Sad':state.codingPhase==='waiting'?'Surprised':state.codingPhase==='writing'?'Neutral':'Curious';return ({happy:'Happy',joyful:'Joyful',sad:'Sad',curious:'Curious',sleepy:'Sleepy',neutral:'Neutral'})[state.mood]}
