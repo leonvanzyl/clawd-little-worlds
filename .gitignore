@@ -9,3 +9,6 @@ inspect-face.mjs
 *.blend2
 .DS_Store
 Thumbs.db
+
+projects/
+.test-data/
