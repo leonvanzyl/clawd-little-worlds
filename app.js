@@ -1,3 +1,4 @@
+import {initTheme} from './theme.js';
 import {createWorkProps} from './work-props.js';
 import {initCodeMode} from './code-mode.js';
 import {createWorkerTeam} from './work-avatars.js';
@@ -172,4 +173,5 @@ function playDrum(type,gain=.6){if(!state.sound||!audioCtx||audioCtx.state!=='ru
  else{const src=audioCtx.createBufferSource();src.buffer=noiseBuffer;const filter=audioCtx.createBiquadFilter();filter.type='highpass';filter.frequency.value=type==='hat'?6500:1100;src.connect(filter);filter.connect(env);env.gain.exponentialRampToValueAtTime(gain*(type==='hat'?.11:.19),t+.002);env.gain.exponentialRampToValueAtTime(.0001,t+(type==='hat'?.055:.16));src.start(t);src.stop(t+.2)}
 }
 function chirp(kind){if(!state.sound||!audioCtx||audioCtx.state!=='running')return;const t=audioCtx.currentTime;const seq=kind==='sad'?[280,220]:kind==='happy'?[500,650,780]:kind==='poke'?[620,390]:[440,550];seq.forEach((hz,i)=>{const osc=audioCtx.createOscillator(),gain=audioCtx.createGain(),at=t+i*.075;osc.type='sine';osc.frequency.value=hz;gain.gain.setValueAtTime(0,at);gain.gain.linearRampToValueAtTime(.04,at+.007);gain.gain.exponentialRampToValueAtTime(.0001,at+.10);osc.connect(gain);gain.connect(audioCtx.destination);osc.start(at);osc.stop(at+.12)})}
+initTheme();
 init().catch(e=>{console.error(e);$('#loading').classList.add('done');$('#error').hidden=false;host.dataset.error=e.message});
