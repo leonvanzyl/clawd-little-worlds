@@ -5,7 +5,9 @@
   "private": true,
   "scripts": {
     "build": "node build.mjs",
-    "check": "node checks/expressions.mjs && node --test checks/studio.mjs checks/markdown.mjs",
+    "check": "node checks/expressions.mjs && node --test checks/studio.mjs checks/markdown.mjs checks/jev-triage.mjs",
+    "check:triage": "node --test checks/jev-triage.mjs",
+    "check:triage:live": "node checks/jev-triage-live.mjs",
     "start": "node server.mjs"
   },
   "keywords": [],

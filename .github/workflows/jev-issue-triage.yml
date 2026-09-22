@@ -1,0 +1,48 @@
+name: Triage issues with Jev
+
+on:
+  issues:
+    types: [opened]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Issue number to classify
+        required: true
+        type: string
+      dry_run:
+        description: Show the result without changing labels
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: jev-triage-${{ github.event.issue.number || inputs.issue_number }}
+  cancel-in-progress: false
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out the workflow code
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Check triage behavior
+        run: node --test checks/jev-triage.mjs
+
+      - name: Classify the issue and apply its label
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        env:
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+          JEV_MODEL: jev-latest
+          JEV_CONFIDENCE_THRESHOLD: '0.7'
+        with:
+          retries: 2
+          script: |
+            const { runTriage } = require('./.github/scripts/jev-triage.cjs');
+            await runTriage({ github, context, core });
