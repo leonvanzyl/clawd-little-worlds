@@ -47,6 +47,14 @@ This first studio version builds **HTML, CSS and JavaScript websites**. The loca
 
 ## Build and extend
 
+### Deploy the playground to Vercel
+
+Import this repository with its root directory unchanged. `vercel.json` explicitly selects the **Other** framework preset, runs `npm run build`, and publishes `dist`. The build produces `dist/index.html` for `/` and retains `dist/Clawd-Playground.html`. Do not use `app.js` as a server entrypoint: it is browser code for Three.js and the DOM.
+
+Vercel hosts the interactive playground. Claude Code mode requires the local `npm start` server, the installed Claude CLI, and its local workspace/session; the hosted page explains this and disables unavailable chat/key controls. A public multi-user Claude studio would need a separately designed authenticated backend rather than the current local bridge.
+
+### Local development
+
 Use Node.js 24.15 or newer. Run `npm ci`, then `npm run build`. The single-page result is written to `dist/Clawd-Playground.html`. Run `npm start` for both modes; a generic static server supports only the playground.
 
 `app.js` owns interaction, animation blending, audio, and the rendering loop. `expressions.js` draws solid pixel strokes on the existing facial bones and animates three floating voxel Z letters. `worlds.js` builds the scenes and socket-mounted props. `index.html` and `styles.css` define the interface. `assets/Clawd-Animator.glb` is the real Blender-exported skinned model; `assets/Clawd-Drumkit.glb` is the kit.

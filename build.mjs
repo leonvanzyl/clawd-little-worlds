@@ -9,5 +9,7 @@ const js=result.outputFiles[0].text.replace(/<\/script/gi,'<\\/script');
 const notice=readFileSync(resolve(root,'THIRD-PARTY-NOTICES.txt'),'utf8').replace(/\*\//g,'* /');
 const html=readFileSync(resolve(root,'index.html'),'utf8').replace('__APP_CSS__',()=>readFileSync(resolve(root,'styles.css'),'utf8')+'\n'+readFileSync(resolve(root,'code-mode.css'),'utf8')).replace('__APP_BUNDLE__',()=>'/* Bundled browser licenses\n'+notice+'\n*/\n'+js);
 if(html.includes('__APP_BUNDLE__')||html.includes('__APP_CSS__'))throw new Error('Unfilled build placeholder');
-const out=resolve(root,'dist');mkdirSync(out,{recursive:true});writeFileSync(resolve(out,'Clawd-Playground.html'),html);
+const out=resolve(root,'dist');mkdirSync(out,{recursive:true});
+// Static hosts serve index.html at /. Keep the original download/local URL too.
+for(const name of ['index.html','Clawd-Playground.html'])writeFileSync(resolve(out,name),html);
 console.log(`Built self-contained playground: ${(html.length/1024).toFixed(0)} KB`);

@@ -3,6 +3,7 @@ import {renderMarkdown} from './chat-markdown.js';
 const $=s=>document.querySelector(s);
 const icon='<svg viewBox="0 0 32 24" aria-hidden="true"><path fill="currentColor" d="M4 2h24v8h4v4h-4v4h-2v4h-2v-4h-2v4h-2v-4H12v4h-2v-4H8v4H6v-4H4v-4H0v-4h4z"/><path fill="#faf5eb" d="M8 6h2v4H8zm14 0h2v4h-2z"/></svg>';
 export function initCodeMode({onMode,onActivity,onAgents}){
+ const localStudio=['127.0.0.1','localhost','[::1]'].includes(location.hostname);
  let connected=false,csrf='',project=null,stream=null,lastEvent=0,busy=false,active=false,auth=null,deltaNode=null,reloadTimer,phase='idle',agents=new Map();
  $('.brand').insertAdjacentHTML('afterend','<nav class="mode-switch" aria-label="Mode"><button id="play-mode" aria-pressed="true">Playground</button><button id="code-mode" aria-pressed="false"><span>⌘</span> Claude Code</button></nav>');
  document.body.insertAdjacentHTML('beforeend',`<section class="code-studio" aria-label="Claude Code studio" hidden>
@@ -56,7 +57,16 @@ export function initCodeMode({onMode,onActivity,onAgents}){
   case 'agent-activity':if(agents.has(e.id)){Object.assign(agents.get(e.id),{phase:e.phase,description:e.label});renderAgents()}break;
  }}
  function loadProject(p){const wasOpen=!$('#activity-content').hidden;stream?.close();project=p;lastEvent=0;agents.clear();deltaNode=null;$('#activity-log').replaceChildren();$('#approval-list').replaceChildren();for(const e of p.events||[])event(e);$('#approval-list').replaceChildren();for(const a of p.approvals||[])approval(a);showConversation(wasOpen||p.approvals?.length>0);agents=new Map((p.agents||[]).map(a=>[a.id,a]));renderAgents();setBusy(p.busy);if(!p.busy)setPhase(p.status==='complete'?'complete':'idle',p.status==='complete'?'Ready for the next change':'Ready when you are');preview();stream=new EventSource('/api/events?project='+p.id+'&after='+lastEvent);stream.onmessage=message=>{try{event(JSON.parse(message.data))}catch(e){console.error('Studio event:',e)}};stream.onerror=()=>{if(active)$('#dev-status').textContent='Reconnecting…'};stream.onopen=()=>{if(project)$('#dev-status').textContent='Dev server running'};}
- async function connect(refresh=false){try{auth=await request('/api/status'+(refresh?'?refresh=1':''));csrf=auth.csrf;connected=auth.available&&(auth.loggedIn||auth.apiKeyConfigured);$('#connection-dot').classList.toggle('connected',connected);$('#prompt-status').textContent=auth.mode==='api-key'?'Anthropic API key':auth.loggedIn?'Claude '+(auth.subscription||'subscription'):'Connect Claude to begin';$('#connection-status').textContent=!auth.available?'Claude Code CLI was not found on this computer.':auth.mode==='api-key'?'Using an Anthropic API key.':auth.loggedIn?`Connected to your Claude ${auth.subscription||'subscription'} account.`:'Run claude auth login in your terminal, or enter an Anthropic API key below.';$('#save-key').disabled=!auth.available;setBusy(busy);if(auth.project&&(!project||auth.project.id!==project.id))loadProject(auth.project);error('');return true}catch(e){connected=false;setBusy(false);$('#connection-status').textContent=e.message;error(e.message);return false}}
+ async function connect(refresh=false){
+  if(!localStudio){
+   const message='Claude Code runs on your computer. Start the local studio with npm start, then open the local address it shows to use your Claude subscription or API key.';
+   connected=false;setBusy(false);setPhase('idle','Local studio required');error(message);$('#connection-status').textContent=message;
+   $('#code-prompt').disabled=true;$('#code-prompt').placeholder='Open the local studio to chat';$('#new-website').disabled=true;
+   for(const id of ['api-key','save-key','use-subscription','recheck-connection'])$('#'+id).disabled=true;
+   $('#dev-status').textContent='Local studio required';$('#prompt-status').textContent='Playground hosted online';return false;
+  }
+  try{auth=await request('/api/status'+(refresh?'?refresh=1':''));csrf=auth.csrf;connected=auth.available&&(auth.loggedIn||auth.apiKeyConfigured);$('#connection-dot').classList.toggle('connected',connected);$('#prompt-status').textContent=auth.mode==='api-key'?'Anthropic API key':auth.loggedIn?'Claude '+(auth.subscription||'subscription'):'Connect Claude to begin';$('#connection-status').textContent=!auth.available?'Claude Code CLI was not found on this computer.':auth.mode==='api-key'?'Using an Anthropic API key.':auth.loggedIn?`Connected to your Claude ${auth.subscription||'subscription'} account.`:'Run claude auth login in your terminal, or enter an Anthropic API key below.';$('#save-key').disabled=!auth.available;setBusy(busy);if(auth.project&&(!project||auth.project.id!==project.id))loadProject(auth.project);error('');return true}catch(e){connected=false;setBusy(false);$('#connection-status').textContent=e.message;error(e.message);return false}
+ }
  async function setMode(value){
   active=value;explore(false);document.body.classList.toggle('code-mode',value);$('.code-studio').hidden=!value;
   (value?$('.code-studio'):$('.playground')).prepend($('#stage'));
