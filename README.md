@@ -59,6 +59,10 @@ Web bone socket names are `GripL`, `GripR`, `AttachHead`, and `AttachBack`. The 
 
 The mansion and pirate environments are authored as Three.js scene geometry in this website. The [Blender sources](blender/README.md) include the original static model and a separate editable character rig with its drum stage. The ready-to-open HTML is committed in `dist/` as well as being reproducible from source.
 
+## Issue triage
+
+New issues are automatically classified by Jev as documentation, bugs, or enhancements. Unclear issues receive `needs-triage`. See [Jev issue triage](.github/JEV-TRIAGE.md) for configuration, manual dry runs, and testing.
+
 ## Credits
 
 Clawd is based on the Claude Code mascot and the supplied references. The bundled browser code includes Three.js, Marked and DOMPurify; see `THIRD-PARTY-NOTICES.txt`. Server dependencies retain their licenses in their npm packages. This is a local interactive fan prototype.
