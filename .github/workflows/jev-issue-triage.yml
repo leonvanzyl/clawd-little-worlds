@@ -10,7 +10,7 @@ on:
         required: true
         type: string
       dry_run:
-        description: Show the result without changing labels
+        description: Preview the report without changing labels or posting comments
         default: true
         type: boolean
 
@@ -35,7 +35,7 @@ jobs:
       - name: Check triage behavior
         run: node --test checks/jev-triage.mjs
 
-      - name: Classify the issue and apply its label
+      - name: Classify the issue, label it, and post the Jev report
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}

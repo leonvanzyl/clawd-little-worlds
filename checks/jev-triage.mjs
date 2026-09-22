@@ -4,6 +4,8 @@ import triage from '../.github/scripts/jev-triage.cjs';
 
 const issue = { number: 12, title: 'The stage crashes', body: 'Opening the band stage crashes the playground.', state: 'open', labels: [] };
 const answer = (choice = 'bug', confidence = 0.95) => ({
+  model: 'jev-test-version',
+  usage: { input_tokens: 321, output_tokens: 45 },
   answers: { category: { type: 'choice', choice, confidence,
     probabilities: Object.fromEntries(['documentation', 'bug', 'feature', 'other'].map(key => [key, key === choice ? 1 : 0])),
   } },
@@ -11,22 +13,33 @@ const answer = (choice = 'bug', confidence = 0.95) => ({
 const response = value => new Response(JSON.stringify(value), { status: 200 });
 const options = { apiKey: 'test-only-placeholder', sleepImpl: async () => {} };
 
-function harness({ issues = [structuredClone(issue)], payload, eventName = 'issues', fetchImpl = async () => response(answer()), env } = {}) {
+function harness({ issues = [structuredClone(issue)], comments = [], payload, eventName = 'issues', fetchImpl = async () => response(answer()), env } = {}) {
   const writes = [];
+  const commentWrites = [];
+  const summaries = [];
   const failures = [];
   let reads = 0;
-  const summary = { addHeading() { return this; }, addTable() { return this; }, async write() {} };
+  const summary = { addRaw(text) { summaries.push(text); return this; }, async write() {} };
   const args = {
-    github: { rest: { issues: {
+    github: { async paginate(method, params) { assert.equal(params.per_page, 100); return comments; }, rest: { issues: {
       async get() { return { data: issues[Math.min(reads++, issues.length - 1)] }; },
       async addLabels(input) { writes.push({ method: 'add', ...input }); },
       async removeLabel(input) { writes.push({ method: 'remove', ...input }); },
+      listComments() {},
+      async createComment(input) {
+        commentWrites.push({ method: 'create', ...input });
+        comments.push({ id: 100 + comments.length, body: input.body, user: { login: 'github-actions[bot]', type: 'Bot' } });
+      },
+      async updateComment(input) {
+        commentWrites.push({ method: 'update', ...input });
+        comments.find(comment => comment.id === input.comment_id).body = input.body;
+      },
     } } },
     context: { eventName, repo: { owner: 'example', repo: 'playground' }, payload: payload || { issue } },
     core: { info() {}, summary, setFailed(message) { failures.push(message); } },
     env: env || { TYPESAFE_API_KEY: options.apiKey }, fetchImpl, sleepImpl: options.sleepImpl,
   };
-  return { run: () => triage.runTriage(args), writes, failures };
+  return { run: () => triage.runTriage(args), writes, failures, commentWrites, summaries, comments, args };
 }
 
 test('maps all categories to the repository labels', async () => {
@@ -100,12 +113,19 @@ test('resolving needs-triage removes only that fallback label', async () => {
   assert.equal(h.writes[1].name, 'needs-triage');
 });
 
-test('already categorized and closed issues are skipped without a model call', async () => {
-  for (const input of [{ ...issue, labels: [{ name: 'enhancement' }] }, { ...issue, state: 'closed' }]) {
-    const h = harness({ issues: [input], fetchImpl: () => assert.fail('Must not call Jev') });
-    await h.run();
-    assert.deepEqual(h.writes, []);
-  }
+test('closed issues are skipped without a model call or comment', async () => {
+  const h = harness({ issues: [{ ...issue, state: 'closed' }], fetchImpl: () => assert.fail('Must not call Jev') });
+  await h.run();
+  assert.deepEqual(h.writes, []);
+  assert.deepEqual(h.commentWrites, []);
+});
+
+test('already categorized issues still receive a report while preserving their label', async () => {
+  const h = harness({ issues: [{ ...issue, labels: [{ name: 'enhancement' }] }] });
+  await h.run();
+  assert.deepEqual(h.writes, []);
+  assert.equal(h.commentWrites.length, 1);
+  assert.match(h.commentWrites[0].body, /Existing category preserved/);
 });
 
 test('dry runs classify closed issues but never write, including when dry_run is omitted', async () => {
@@ -113,6 +133,8 @@ test('dry runs classify closed issues but never write, including when dry_run is
     const h = harness({ eventName: 'workflow_dispatch', payload: { inputs: { issue_number: '12', dry_run } }, issues: [{ ...issue, state: 'closed' }] });
     assert.equal((await h.run()).label, 'bug');
     assert.deepEqual(h.writes, []);
+    assert.deepEqual(h.commentWrites, []);
+    assert.match(h.summaries[0], /Context and instructions sent to Jev/);
   }
 });
 
@@ -135,6 +157,9 @@ test('API failure applies needs-triage and marks the run failed', async () => {
   await h.run();
   assert.deepEqual(h.writes[0].labels, ['needs-triage']);
   assert.deepEqual(h.failures, ['Jev request failed (HTTP 503).']);
+  assert.match(h.commentWrites[0].body, /HTTP 503/);
+  assert.match(h.commentWrites[0].body, /No JSON response was received/);
+  assert.equal(h.commentWrites[0].body.includes('Private error body'), false);
 });
 
 test('missing credentials fail visibly and leave the issue for manual triage', async () => {
@@ -142,6 +167,69 @@ test('missing credentials fail visibly and leave the issue for manual triage', a
   await h.run();
   assert.deepEqual(h.writes[0].labels, ['needs-triage']);
   assert.deepEqual(h.failures, ['TYPESAFE_API_KEY is not configured.']);
+  assert.match(h.commentWrites[0].body, /No request was sent/);
+});
+
+test('comment includes the exact request and response, confidence, probabilities, model and usage', async () => {
+  let sent;
+  const h = harness({ fetchImpl: async (url, init) => { sent = JSON.parse(init.body); return response(answer()); } });
+  await h.run();
+  const body = h.commentWrites[0].body;
+  const jsonBlocks = [...body.matchAll(/```json\n([\s\S]*?)\n```/g)].map(match => JSON.parse(match[1]));
+  assert.deepEqual(jsonBlocks, [sent, answer()]);
+  assert.match(body, /95\.0% \(raw score: 0\.95\)/);
+  assert.match(body, /70\.0%/);
+  assert.match(body, /\| bug \| 100\.0% \|/);
+  assert.match(body, /Applied bug/);
+  assert.equal(body.includes(options.apiKey), false);
+  assert.equal(body.includes('Authorization'), false);
+});
+
+test('reruns update the existing Actions bot report instead of adding duplicate comments', async () => {
+  const h = harness();
+  await h.run();
+  await h.run();
+  assert.deepEqual(h.commentWrites.map(write => write.method), ['create', 'update']);
+  assert.equal(h.commentWrites[1].comment_id, 100);
+  assert.equal(h.comments.length, 1);
+});
+
+test('a copied marker in a human or another bot comment is never edited', async () => {
+  const marker = '<!-- jev-issue-triage-report:v1 -->';
+  const h = harness({ comments: [
+    { id: 1, body: marker, user: { login: 'someone', type: 'User' } },
+    { id: 2, body: marker, user: { login: 'another[bot]', type: 'Bot' } },
+  ] });
+  await h.run();
+  assert.equal(h.commentWrites[0].method, 'create');
+  assert.equal(h.comments[0].body, marker);
+  assert.equal(h.comments[1].body, marker);
+});
+
+test('request text stays in JSON and copied credentials are redacted from comments and summaries', async () => {
+  const h = harness({ issues: [{ ...issue, body: `\n\`\`\`\n@someone <details>\n${options.apiKey}` }] });
+  await h.run();
+  const body = h.commentWrites[0].body;
+  assert.equal(body.includes(options.apiKey), false);
+  assert.equal(h.summaries[0].includes(options.apiKey), false);
+  const request = JSON.parse([...body.matchAll(/```json\n([\s\S]*?)\n```/g)][0][1]);
+  assert.equal(request.state.issue.body, '\n```\n@someone <details>\n[REDACTED]');
+});
+
+test('oversized response reports are explicitly truncated to stay within comment limits', async () => {
+  const h = harness({ fetchImpl: async () => response({ ...answer(), extra: 'x'.repeat(70000) }) });
+  await h.run();
+  assert.ok(h.commentWrites[0].body.length < 60000);
+  assert.match(h.commentWrites[0].body, /payload was truncated/);
+});
+
+test('a label API failure still publishes the inference report and fails the run', async () => {
+  const h = harness();
+  h.args.github.rest.issues.addLabels = async () => { throw new Error('GitHub unavailable'); };
+  await h.run();
+  assert.equal(h.commentWrites.length, 1);
+  assert.match(h.commentWrites[0].body, /GitHub label update failed/);
+  assert.equal(h.failures.length, 1);
 });
 
 test('rejects pull requests, invalid issue numbers and invalid thresholds', async () => {
