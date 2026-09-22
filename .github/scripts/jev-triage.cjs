@@ -1,6 +1,7 @@
 const { setTimeout: sleep } = require('node:timers/promises');
 
 const ENDPOINT = 'https://api.typesafe.ai/v1/systemone';
+const COMMENT_MARKER = '<!-- jev-issue-triage-report:v1 -->';
 const MAX_ISSUE_CHARACTERS = 16000;
 const LABELS = {
   documentation: 'documentation',
@@ -26,6 +27,7 @@ async function classifyIssue(issue, {
   threshold = 0.7,
   fetchImpl = fetch,
   sleepImpl = sleep,
+  trace = {},
 } = {}) {
   if (!Number.isFinite(threshold) || threshold < 0 || threshold > 1) {
     throw new Error('JEV_CONFIDENCE_THRESHOLD must be a number between 0 and 1.');
@@ -51,6 +53,9 @@ async function classifyIssue(issue, {
       },
     },
   });
+
+  // Retain exactly the JSON body sent, never the Authorization header.
+  trace.request = JSON.parse(request);
 
   let response;
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -83,6 +88,7 @@ async function classifyIssue(issue, {
   } catch {
     throw new Error('Jev returned an invalid JSON response.');
   }
+  trace.response = payload;
   const answer = payload?.answers?.category;
   const unitInterval = value => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
   if (answer?.type !== 'choice' || !Object.hasOwn(LABELS, answer.choice) || !unitInterval(answer.confidence)
@@ -100,6 +106,50 @@ async function classifyIssue(issue, {
   };
 }
 
+function formatReport({ result, trace, threshold, action, apiKey }) {
+  const percent = value => `${(value * 100).toFixed(1)}%`;
+  const jsonSection = (heading, value, limit) => {
+    if (value === undefined) return `### ${heading}\n\nUnavailable.\n`;
+    let json = JSON.stringify(value, null, 2);
+    // Also redact an exact credential match if it was copied into issue text or echoed upstream.
+    if (apiKey) json = json.replaceAll(apiKey, '[REDACTED]');
+    const truncated = json.length > limit;
+    if (truncated) json = `${json.slice(0, limit)}\n... [truncated]`;
+    // JSON strings escape newlines, so issue text cannot terminate this code fence.
+    return `<details>\n<summary>${heading}</summary>\n\n${truncated ? 'This unusually large payload was truncated to fit GitHub’s comment limit.\n\n' : ''}\`\`\`json\n${json}\n\`\`\`\n\n</details>\n`;
+  };
+  const lines = [COMMENT_MARKER, '## Jev issue classification', '',
+    `- **Suggested label:** \`${result.label}\``,
+    `- **Jev category:** ${result.choice ? `\`${result.choice}\`` : 'Unavailable'}`,
+    `- **Confidence:** ${result.confidence === undefined ? 'Unavailable' : `${percent(result.confidence)} (raw score: ${result.confidence})`}`,
+    `- **Automatic labeling threshold:** ${percent(threshold)}`, '',
+    `**Outcome:** ${action}`, '', `**Decision:** ${result.reason}`, '',
+    'Confidence describes how concentrated Jev’s category probabilities are; it is not a verified accuracy percentage.', '',
+  ];
+  if (result.probabilities) {
+    lines.push('| Category | Probability |', '| --- | --- |');
+    for (const category of Object.keys(LABELS)) lines.push(`| ${category} | ${percent(result.probabilities[category])} |`);
+    lines.push('');
+  }
+  lines.push(trace.request ? jsonSection('Context and instructions sent to Jev (request JSON)', trace.request, 40000)
+    : 'No request was sent to Jev.', '',
+    trace.response === undefined ? 'No JSON response was received from Jev.'
+      : jsonSection('Jev response (including model, probabilities, confidence, and token usage)', trace.response, 12000), '',
+    'Authentication headers and API keys are excluded. This report is updated on reruns.');
+  return lines.join('\n');
+}
+
+async function upsertReport(github, target, body) {
+  const comments = await github.paginate(github.rest.issues.listComments, { ...target, per_page: 100 });
+  const existing = comments.find(comment => comment.user?.login === 'github-actions[bot]'
+    && comment.user?.type === 'Bot' && comment.body?.startsWith(COMMENT_MARKER));
+  if (existing) {
+    await github.rest.issues.updateComment({ owner: target.owner, repo: target.repo, comment_id: existing.id, body });
+  } else {
+    await github.rest.issues.createComment({ ...target, body });
+  }
+}
+
 async function runTriage({ github, context, core, env = process.env, fetchImpl, sleepImpl }) {
   const manual = context.eventName === 'workflow_dispatch';
   const inputs = context.payload.inputs || {};
@@ -112,55 +162,58 @@ async function runTriage({ github, context, core, env = process.env, fetchImpl, 
   const target = { ...context.repo, issue_number: Number(rawNumber) };
   const { data: issue } = await github.rest.issues.get(target);
   if (issue.pull_request) throw new Error('Pull requests are not supported by issue triage.');
-  if (!dryRun && (issue.state !== 'open' || hasCategory(issue))) {
-    core.info('Skipped: issue is closed or already has a category label.');
+  if (!dryRun && issue.state !== 'open') {
+    core.info('Skipped: issue is closed.');
     return;
   }
 
   let result;
   let failure;
+  const trace = {};
+  const threshold = Number(env.JEV_CONFIDENCE_THRESHOLD || '0.7');
   try {
     result = await classifyIssue(issue, {
       apiKey: env.TYPESAFE_API_KEY,
       model: env.JEV_MODEL || 'jev-latest',
-      threshold: Number(env.JEV_CONFIDENCE_THRESHOLD || '0.7'),
+      threshold,
       fetchImpl,
       sleepImpl,
+      trace,
     });
   } catch (error) {
     failure = error.message;
     result = { label: 'needs-triage', reason: failure };
   }
 
-  let action = 'Dry run; labels unchanged.';
+  let action = 'Dry run; no labels or issue comments changed.';
   if (!dryRun) {
-    // Respect edits and human classification made while the API call was running.
-    const { data: latest } = await github.rest.issues.get(target);
-    if (latest.state !== 'open' || hasCategory(latest) || latest.title !== issue.title || latest.body !== issue.body) {
-      action = 'Skipped because the issue changed during classification.';
-    } else {
-      await github.rest.issues.addLabels({ ...target, labels: [result.label] });
-      if (result.label !== 'needs-triage' && latest.labels.some(label => (typeof label === 'string' ? label : label.name) === 'needs-triage')) {
-        try {
-          await github.rest.issues.removeLabel({ ...target, name: 'needs-triage' });
-        } catch (error) {
-          if (error.status !== 404) throw error;
+    try {
+      // Respect edits and human classification made while the API call was running.
+      const { data: latest } = await github.rest.issues.get(target);
+      if (latest.state !== 'open' || latest.title !== issue.title || latest.body !== issue.body) {
+        action = 'No label applied because the issue changed during classification.';
+      } else if (hasCategory(issue) || hasCategory(latest)) {
+        action = 'Existing category preserved; no label changes made.';
+      } else {
+        await github.rest.issues.addLabels({ ...target, labels: [result.label] });
+        if (result.label !== 'needs-triage' && latest.labels.some(label => (typeof label === 'string' ? label : label.name) === 'needs-triage')) {
+          try {
+            await github.rest.issues.removeLabel({ ...target, name: 'needs-triage' });
+          } catch (error) {
+            if (error.status !== 404) throw error;
+          }
         }
+        action = `Applied ${result.label}.`;
       }
-      action = `Applied ${result.label}.`;
+    } catch {
+      failure = 'GitHub label update failed. See the issue labels for their current state.';
+      action = failure;
     }
   }
-  core.info(`Issue #${target.issue_number}: ${action}`);
-  await core.summary
-    .addHeading(`Jev triage: issue #${target.issue_number}`)
-    .addTable([
-      [{ data: 'Field', header: true }, { data: 'Result', header: true }],
-      ['Label', result.label],
-      ['Confidence', result.confidence === undefined ? 'Unavailable' : result.confidence.toFixed(3)],
-      ['Decision', result.reason],
-      ['Action', action],
-    ])
-    .write();
+  const report = formatReport({ result, trace, threshold, action, apiKey: env.TYPESAFE_API_KEY });
+  core.info(`Issue #${target.issue_number}: suggested ${result.label}, confidence ${result.confidence ?? 'unavailable'}. ${action}`);
+  await core.summary.addRaw(report).write();
+  if (!dryRun) await upsertReport(github, target, report);
   if (failure) core.setFailed(failure);
   return result;
 }

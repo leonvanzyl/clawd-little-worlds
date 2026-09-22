@@ -61,7 +61,7 @@ The mansion and pirate environments are authored as Three.js scene geometry in t
 
 ## Issue triage
 
-New issues are automatically classified by Jev as documentation, bugs, or enhancements. Unclear issues receive `needs-triage`. See [Jev issue triage](.github/JEV-TRIAGE.md) for configuration, manual dry runs, and testing.
+New issues are automatically classified by Jev as documentation, bugs, or enhancements. Unclear issues receive `needs-triage`. A bot comment shows the context sent to Jev, its response, and confidence score. See [Jev issue triage](.github/JEV-TRIAGE.md) for configuration, manual dry runs, and testing.
 
 ## Credits
 
