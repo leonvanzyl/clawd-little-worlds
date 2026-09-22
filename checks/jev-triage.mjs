@@ -3,12 +3,17 @@ import assert from 'node:assert/strict';
 import triage from '../.github/scripts/jev-triage.cjs';
 
 const issue = { number: 12, title: 'The stage crashes', body: 'Opening the band stage crashes the playground.', state: 'open', labels: [] };
-const answer = (choice = 'bug', confidence = 0.95) => ({
+const answer = (choice = 'bug', confidence = 0.95, agent = 'codex', agentConfidence = 0.95) => ({
   model: 'jev-test-version',
   usage: { input_tokens: 321, output_tokens: 45 },
-  answers: { category: { type: 'choice', choice, confidence,
-    probabilities: Object.fromEntries(['documentation', 'bug', 'feature', 'other'].map(key => [key, key === choice ? 1 : 0])),
-  } },
+  answers: {
+    category: { type: 'choice', choice, confidence,
+      probabilities: Object.fromEntries(['documentation', 'bug', 'feature', 'other'].map(key => [key, key === choice ? 1 : 0])),
+    },
+    agent: { type: 'choice', choice: agent, confidence: agentConfidence,
+      probabilities: Object.fromEntries(['codex', 'claude', 'claude_haiku', 'unassigned'].map(key => [key, key === agent ? 1 : 0])),
+    },
+  },
 });
 const response = value => new Response(JSON.stringify(value), { status: 200 });
 const options = { apiKey: 'test-only-placeholder', sleepImpl: async () => {} };
@@ -68,6 +73,8 @@ test('sends issue content only as JSON data to the fixed TypeSafe endpoint', asy
     assert.equal(payload.state.issue.body, malicious.body);
     assert.equal(init.body.includes(options.apiKey), false);
     assert.equal(payload.questions.category.type, 'choice');
+    assert.equal(payload.questions.agent.type, 'choice');
+    assert.deepEqual(Object.keys(payload.questions.agent.criteria), ['codex', 'claude', 'claude_haiku', 'unassigned']);
     return response(answer());
   } });
 });
@@ -123,7 +130,7 @@ test('closed issues are skipped without a model call or comment', async () => {
 test('already categorized issues still receive a report while preserving their label', async () => {
   const h = harness({ issues: [{ ...issue, labels: [{ name: 'enhancement' }] }] });
   await h.run();
-  assert.deepEqual(h.writes, []);
+  assert.deepEqual(h.writes[0].labels, ['agent:codex']);
   assert.equal(h.commentWrites.length, 1);
   assert.match(h.commentWrites[0].body, /Existing category preserved/);
 });
@@ -144,8 +151,8 @@ test('manual write mode must be explicitly selected', async () => {
   assert.equal(h.writes.length, 1);
 });
 
-test('preserves human changes made during classification', async () => {
-  for (const latest of [{ ...issue, labels: [{ name: 'documentation' }] }, { ...issue, title: 'Updated title' }, { ...issue, body: 'Updated body' }, { ...issue, state: 'closed' }]) {
+test('preserves text and state changes made during classification', async () => {
+  for (const latest of [{ ...issue, title: 'Updated title' }, { ...issue, body: 'Updated body' }, { ...issue, state: 'closed' }]) {
     const h = harness({ issues: [issue, latest] });
     await h.run();
     assert.deepEqual(h.writes, []);
@@ -155,7 +162,7 @@ test('preserves human changes made during classification', async () => {
 test('API failure applies needs-triage and marks the run failed', async () => {
   const h = harness({ fetchImpl: async () => new Response('Private error body', { status: 503 }) });
   await h.run();
-  assert.deepEqual(h.writes[0].labels, ['needs-triage']);
+  assert.deepEqual(h.writes[0].labels, ['needs-triage', 'needs-agent-triage']);
   assert.deepEqual(h.failures, ['Jev request failed (HTTP 503).']);
   assert.match(h.commentWrites[0].body, /HTTP 503/);
   assert.match(h.commentWrites[0].body, /No JSON response was received/);
@@ -165,7 +172,7 @@ test('API failure applies needs-triage and marks the run failed', async () => {
 test('missing credentials fail visibly and leave the issue for manual triage', async () => {
   const h = harness({ env: {}, fetchImpl: () => assert.fail('Must not call Jev') });
   await h.run();
-  assert.deepEqual(h.writes[0].labels, ['needs-triage']);
+  assert.deepEqual(h.writes[0].labels, ['needs-triage', 'needs-agent-triage']);
   assert.deepEqual(h.failures, ['TYPESAFE_API_KEY is not configured.']);
   assert.match(h.commentWrites[0].body, /No request was sent/);
 });
@@ -181,6 +188,10 @@ test('comment includes the exact request and response, confidence, probabilities
   assert.match(body, /70\.0%/);
   assert.match(body, /\| bug \| 100\.0% \|/);
   assert.match(body, /Applied bug/);
+  assert.match(body, /Suggested agent label:\*\* `agent:codex`/);
+  assert.match(body, /Agent confidence:\*\* 95\.0%/);
+  assert.match(body, /\| codex \| 100\.0% \|/);
+  assert.match(body, /Agent outcome:\*\* Applied agent:codex/);
   assert.equal(body.includes(options.apiKey), false);
   assert.equal(body.includes('Authorization'), false);
 });
@@ -236,4 +247,76 @@ test('rejects pull requests, invalid issue numbers and invalid thresholds', asyn
   await assert.rejects(harness({ issues: [{ ...issue, pull_request: {} }] }).run(), /Pull requests/);
   await assert.rejects(harness({ eventName: 'workflow_dispatch', payload: { inputs: { issue_number: '12; echo unsafe' } } }).run(), /positive issue number/);
   await assert.rejects(triage.classifyIssue(issue, { ...options, threshold: NaN }), /must be a number/);
+});
+
+test('routes each agent choice to the factory label without changing the category', async () => {
+  for (const [agent, label] of Object.entries({ codex: 'agent:codex', claude: 'agent:claude', claude_haiku: 'agent:claude-haiku', unassigned: 'needs-agent-triage' })) {
+    const h = harness({ fetchImpl: async () => response(answer('feature', 0.95, agent)) });
+    const result = await h.run();
+    assert.equal(result.label, 'enhancement');
+    assert.equal(result.agent.label, label);
+    assert.deepEqual(h.writes[0].labels, ['enhancement', label]);
+  }
+});
+
+test('category and agent confidence thresholds operate independently', async () => {
+  const cases = [
+    { category: 0.4, agent: 0.95, expected: ['needs-triage', 'agent:codex'] },
+    { category: 0.95, agent: 0.4, expected: ['bug', 'needs-agent-triage'] },
+  ];
+  for (const example of cases) {
+    const h = harness({ fetchImpl: async () => response(answer('bug', example.category, 'codex', example.agent)) });
+    await h.run();
+    assert.deepEqual(h.writes[0].labels, example.expected);
+  }
+  const h = harness({ env: { TYPESAFE_API_KEY: options.apiKey, JEV_AGENT_CONFIDENCE_THRESHOLD: '0.98' } });
+  await h.run();
+  assert.deepEqual(h.writes[0].labels, ['bug', 'needs-agent-triage']);
+  assert.match(h.commentWrites[0].body, /Agent threshold:\*\* 98\.0%/);
+});
+
+test('routing validation failures preserve a valid category and flag routing for review', async () => {
+  for (const agentAnswer of [undefined, { type: 'choice', choice: 'ready', confidence: 1, probabilities: { ready: 1 } }, { ...answer().answers.agent, confidence: 2 }]) {
+    const payload = answer();
+    payload.answers.agent = agentAnswer;
+    const h = harness({ fetchImpl: async () => response(payload) });
+    await h.run();
+    assert.deepEqual(h.writes[0].labels, ['bug', 'needs-agent-triage']);
+    assert.deepEqual(h.failures, ['Jev returned an invalid agent response.']);
+  }
+});
+
+test('a human agent selection before or during inference is preserved', async () => {
+  for (const issues of [
+    [{ ...issue, labels: [{ name: 'agent:claude' }] }],
+    [issue, { ...issue, labels: [{ name: 'agent:claude-haiku' }] }],
+    [{ ...issue, labels: [{ name: 'agent:future-worker' }] }],
+  ]) {
+    const h = harness({ issues });
+    await h.run();
+    assert.deepEqual(h.writes[0].labels, ['bug']);
+    assert.match(h.commentWrites[0].body, /Existing agent label preserved/);
+  }
+});
+
+test('a human category selection during inference does not block agent routing', async () => {
+  const h = harness({ issues: [issue, { ...issue, labels: [{ name: 'documentation' }] }] });
+  await h.run();
+  assert.deepEqual(h.writes[0].labels, ['agent:codex']);
+  assert.match(h.commentWrites[0].body, /Existing category preserved/);
+});
+
+test('resolving agent uncertainty removes only its fallback label', async () => {
+  const h = harness({ issues: [{ ...issue, labels: [{ name: 'bug' }, { name: 'needs-agent-triage' }, { name: 'ready' }] }] });
+  await h.run();
+  assert.deepEqual(h.writes.map(write => write.method), ['add', 'remove']);
+  assert.deepEqual(h.writes[0].labels, ['agent:codex']);
+  assert.equal(h.writes[1].name, 'needs-agent-triage');
+});
+
+test('preselected category and agent are both preserved', async () => {
+  const h = harness({ issues: [{ ...issue, labels: [{ name: 'documentation' }, { name: 'agent:claude-haiku' }] }] });
+  await h.run();
+  assert.deepEqual(h.writes, []);
+  assert.equal(h.commentWrites.length, 1);
 });

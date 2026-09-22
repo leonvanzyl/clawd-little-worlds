@@ -69,7 +69,7 @@ The mansion and pirate environments are authored as Three.js scene geometry in t
 
 ## Issue triage
 
-New issues are automatically classified by Jev as documentation, bugs, or enhancements. Unclear issues receive `needs-triage`. A bot comment shows the context sent to Jev, its response, and confidence score. See [Jev issue triage](.github/JEV-TRIAGE.md) for configuration, manual dry runs, and testing.
+New issues are automatically classified by Jev as documentation, bugs, or enhancements, and routed to Codex, Claude, or Claude Haiku based on the work involved. Unclear categories receive `needs-triage`; unclear agent choices receive `needs-agent-triage`. A bot comment shows the context sent to Jev, both decisions, and their confidence scores. See [Jev issue triage](.github/JEV-TRIAGE.md) for the routing policy, configuration, manual dry runs, and testing.
 
 ## Credits
 
