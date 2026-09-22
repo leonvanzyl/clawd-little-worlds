@@ -41,6 +41,7 @@ jobs:
           TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
           JEV_MODEL: jev-latest
           JEV_CONFIDENCE_THRESHOLD: '0.7'
+          JEV_AGENT_CONFIDENCE_THRESHOLD: '0.7'
         with:
           retries: 2
           script: |
