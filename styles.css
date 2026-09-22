@@ -24,6 +24,7 @@ h1{margin-bottom:0}footer{justify-content:flex-end}footer button{margin-left:0}
 [data-theme=dark] .mode-switch button[aria-pressed=true]{background:#554234}
 [data-theme=dark] .mode-switch button span,[data-theme=dark] footer button{color:var(--accent)}
 [data-theme=dark] .prop-row label,[data-theme=dark] .world-grid strong,[data-theme=dark] footer{color:var(--secondary)}
+[data-theme=dark] select,[data-theme=dark] option{background:var(--surface);color:var(--text)}
 [data-theme=dark] .stage{border-color:var(--line);background:var(--surface)}
 [data-theme=dark] .loading,[data-theme=dark] #error{background:var(--surface);color:var(--secondary)}
 [data-theme=dark] .scene-label,[data-theme=dark] .camera-buttons button{background:#2c2824e8;color:var(--text);border-color:var(--line)}
