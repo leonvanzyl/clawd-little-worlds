@@ -39,7 +39,7 @@ This first studio version builds **HTML, CSS and JavaScript websites**. The loca
 
 - Click or tap Clawd to poke it. Drag to turn the camera; scroll or pinch to zoom. The circular arrow starts a slow orbit, and the home button restores the camera.
 - Choose Happy, Sad, Joyful, Curious, Sleepy, or Just chilling. Say hello and Little hop are short gestures that return to idle or the drum loop.
-- Give Clawd a mug, balloon, or headphones. Hand props follow the hand bones. Drumsticks replace hand props while the band is playing; headphones can stay on.
+- Give Clawd a mug, balloon, headphones, or squash racket. Hand props follow the hand bones. Drumsticks replace hand props while the band is playing; headphones can stay on.
 - Explore the playground, garden, desk, moon, band stage, spooky mansion, and pirate ship. Click the mansion's ghost or the ship's wheel. The stage starts the band automatically; the band button works elsewhere too.
 - Sound starts muted. Enable it for synthesized drums and tiny reaction sounds. Click drum surfaces for individual hits.
 - Pixel view adds a low-resolution finish. The poses use held steps in either view.
