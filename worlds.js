@@ -65,6 +65,13 @@ export function heldProps(bones){
  let g=group(bones.GripR);g.visible=false;props.mug=g;box(g,'#eee0c1',[0,.24,0],[.53,.60,.53]);box(g,'#634938',[0,.551,0],[.40,.01,.40]);box(g,'#eee0c1',[.36,.28,0],[.23,.12,.12]);box(g,'#eee0c1',[.47,.28,0],[.12,.35,.12]);
  g=group(bones.GripL);g.visible=false;props.balloon=g;box(g,'#f0e2c9',[0,.9,0],[.035,1.8,.035]);box(g,'#c77461',[0,2.15,0],[.9,.95,.75]);box(g,'#e49879',[-.2,2.35,.39],[.12,.20,.025]);box(g,'#bf775f',[0,1.65,0],[.16,.12,.16]);
  g=group(bones.AttachHead);g.visible=false;props.headphones=g;box(g,'#576d70',[0,.15,0],[4.65,.23,.65]);for(const x of [-2.4,2.4]){box(g,'#576d70',[x,-.4,0],[.25,1.15,.65]);box(g,'#809899',[x,-.94,0],[.55,.9,1.35]);box(g,'#c1c7b3',[x+(x<0?-.29:.29),-.94,0],[.06,.45,.65])}
+ g=group(bones.GripR);g.visible=false;props.racket=g;g.rotation.z=-.25;
+ box(g,'#576d70',[0,.12,0],[.19,.65,.19]);box(g,'#799391',[0,.7,0],[.10,.6,.10]);
+ for(let i=0;i<5;i++)box(g,'#a4b5ac',[0,-.12+i*.12,0],[.20,.035,.20]);
+ // Faceted oval head and a clipped string grid, built from the same blocks as the other props.
+ for(let i=0;i<16;i++){const a=i*Math.PI/8,b=(i+1)*Math.PI/8,x1=Math.cos(a)*.55,y1=1.8+Math.sin(a)*.8,x2=Math.cos(b)*.55,y2=1.8+Math.sin(b)*.8;const rim=box(g,'#799391',[(x1+x2)/2,(y1+y2)/2,0],[Math.hypot(x2-x1,y2-y1)+.025,.09,.12]);rim.rotation.z=Math.atan2(y2-y1,x2-x1)}
+ for(let i=-3;i<=3;i++){const x=i*.13,h=.8*Math.sqrt(1-(x/.55)**2);box(g,'#eee0c1',[x,1.8,0],[.025,h*2,.025])}
+ for(let i=-4;i<=4;i++){const y=i*.15,w=.55*Math.sqrt(1-(y/.8)**2);box(g,'#eee0c1',[0,1.8+y,0],[w*2,.025,.025])}
  const sticks=[];for(const side of ['L','R']){const stick=group(bones['Grip'+side]);box(stick,'#f4e9ce',[0,.7,0],[.14,1.6,.14]);box(stick,'#f4e9ce',[0,1.52,0],[.2,.18,.2]);stick.visible=false;sticks.push(stick)}
  return{props,sticks};
 }
