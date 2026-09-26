@@ -10,7 +10,6 @@ h1{margin-bottom:0}footer{justify-content:flex-end}footer button{margin-left:0}
 .theme-picker{display:flex;align-items:center;gap:6px;font-size:12px}
 .theme-picker select{border:1px solid var(--line);border-radius:7px;background:transparent;padding:8px 5px;cursor:pointer}
 .header-actions .theme-picker>span{display:none}
-#studio-menu .theme-picker{padding:10px;font-size:11px;justify-content:space-between}
 @media(max-width:480px){.theme-picker select{font-size:10px;padding:6px 2px}.header-actions{flex-wrap:wrap}}
 
 /* The interface follows the chosen theme; scene artwork keeps its own palette. */
@@ -19,10 +18,9 @@ h1{margin-bottom:0}footer{justify-content:flex-end}footer button{margin-left:0}
 [data-theme=dark] .brand svg path:last-child{fill:#211f1d}
 [data-theme=dark] .quiet:hover,[data-theme=dark] .quiet[aria-pressed=true],[data-theme=dark] .moods button:hover,[data-theme=dark] .world-grid button:hover{background:var(--hover);border-color:#8a715d}
 [data-theme=dark] .moods button.selected,[data-theme=dark] .world-grid button.active{background:#503a2d;border-color:#c28c6a;color:#f0b798}
-[data-theme=dark] .gesture-row button,[data-theme=dark] .mode-switch{background:var(--raised)}
+[data-theme=dark] .gesture-row button{background:var(--raised)}
 [data-theme=dark] .gesture-row button:hover{background:var(--hover)}
-[data-theme=dark] .mode-switch button[aria-pressed=true]{background:#554234}
-[data-theme=dark] .mode-switch button span,[data-theme=dark] footer button{color:var(--accent)}
+[data-theme=dark] footer button{color:var(--accent)}
 [data-theme=dark] .prop-row label,[data-theme=dark] .world-grid strong,[data-theme=dark] footer{color:var(--secondary)}
 [data-theme=dark] .stage{border-color:var(--line);background:var(--surface)}
 [data-theme=dark] .loading,[data-theme=dark] #error{background:var(--surface);color:var(--secondary)}
@@ -30,32 +28,3 @@ h1{margin-bottom:0}footer{justify-content:flex-end}footer button{margin-left:0}
 [data-theme=dark] .camera-buttons button:hover,[data-theme=dark] .camera-buttons button[aria-pressed=true]{background:var(--hover)}
 [data-theme=dark] .bubble{background:var(--surface);color:var(--text);border-color:var(--line);box-shadow:0 3px 0 #0003}
 [data-theme=dark] .bubble:after{background:var(--surface);border-color:var(--line)}
-[data-theme=dark] .code-studio,[data-theme=dark] .browser-window,[data-theme=dark] #site-preview{background:#211f1d}
-[data-theme=dark] #preview-empty{background:radial-gradient(ellipse at 50% 42%,#3d342c 0,#29241f 60%,#211f1d 100%)}
-[data-theme=dark] .studio-navigation button,[data-theme=dark] #studio-options,[data-theme=dark] #return-to-clawd,[data-theme=dark] #studio-menu,[data-theme=dark] .clawd-work-status,[data-theme=dark] #code-prompt-form,[data-theme=dark] #activity-content{background:#2c2824f5;color:var(--secondary);border-color:var(--line);box-shadow:0 8px 30px #0003}
-[data-theme=dark] .studio-navigation button:hover,[data-theme=dark] #studio-options:hover,[data-theme=dark] #return-to-clawd:hover,[data-theme=dark] #studio-menu>button:hover,[data-theme=dark] #studio-menu>a:hover{background:var(--hover)}
-[data-theme=dark] #studio-menu>button,[data-theme=dark] #studio-menu>a,[data-theme=dark] .activity-log,[data-theme=dark] .activity-item.markdown-body{color:var(--text)}
-[data-theme=dark] .studio-menu-heading,[data-theme=dark] .studio-menu-info{border-color:var(--line)}
-[data-theme=dark] .studio-menu-heading small,[data-theme=dark] .studio-menu-info,[data-theme=dark] .activity-heading,[data-theme=dark] .activity-heading button,[data-theme=dark] .empty-activity,[data-theme=dark] .activity-item.tool,[data-theme=dark] .agent-card small,[data-theme=dark] .dialog-close,[data-theme=dark] .connection-hint,[data-theme=dark] #connection-dialog label span{color:var(--secondary)}
-[data-theme=dark] #code-prompt{color:var(--text)}
-[data-theme=dark] #code-prompt::placeholder{color:var(--secondary)}
-[data-theme=dark] #code-prompt-form:focus-within{border-color:var(--accent)}
-[data-theme=dark] #toggle-activity,[data-theme=dark] #toggle-activity:hover,[data-theme=dark] #toggle-activity[aria-expanded=true],[data-theme=dark] .activity-item.user,[data-theme=dark] .agent-card button,[data-theme=dark] #recheck-connection{color:var(--accent)}
-[data-theme=dark] #toggle-activity.unread:after{border-color:var(--surface)}
-[data-theme=dark] .activity-item.notice{color:#d9b779}
-[data-theme=dark] .activity-item.error,[data-theme=dark] #connection-error,[data-theme=dark] #studio-error{color:#f0a18b}
-[data-theme=dark] #dev-status.running{color:#b4c99c}
-[data-theme=dark] .agent-card,[data-theme=dark] .approval-card,[data-theme=dark] #studio-error{background:var(--raised);border-color:var(--line)}
-[data-theme=dark] .approval-card input,[data-theme=dark] #api-key{background:#211f1d;color:var(--text);border-color:var(--line)}
-[data-theme=dark] .answer-options button,[data-theme=dark] .approval-actions button,[data-theme=dark] .connection-actions button,[data-theme=dark] #stop-code{background:var(--hover);color:var(--text);border-color:#8a715d}
-[data-theme=dark] .approval-actions button:last-child,[data-theme=dark] .connection-actions button:last-child{background:#805b3e;color:#fff7e8}
-[data-theme=dark] #connection-dialog{background:var(--surface);color:var(--text);border-color:var(--line)}
-[data-theme=dark] #connection-dialog::backdrop{background:#0008}
-[data-theme=dark] .markdown-body h1,[data-theme=dark] .markdown-body h2,[data-theme=dark] .markdown-body h3,[data-theme=dark] .markdown-body h4,[data-theme=dark] .markdown-body h5,[data-theme=dark] .markdown-body h6,[data-theme=dark] .markdown-body strong,[data-theme=dark] .markdown-body pre code{color:var(--text)}
-[data-theme=dark] .markdown-body a,[data-theme=dark] .markdown-body li::marker{color:var(--accent)}
-[data-theme=dark] .markdown-body a:not([href]){color:inherit}
-[data-theme=dark] .markdown-body code,[data-theme=dark] .markdown-body pre,[data-theme=dark] .markdown-body th{background:var(--raised);border-color:var(--line)}
-[data-theme=dark] .markdown-body pre code{background:transparent}
-[data-theme=dark] .markdown-body blockquote{color:var(--secondary)}
-[data-theme=dark] .markdown-body hr,[data-theme=dark] .markdown-body td,[data-theme=dark] .markdown-body th{border-color:var(--line)}
-[data-theme=dark] .markdown-body tr:nth-child(even){background:var(--surface)}

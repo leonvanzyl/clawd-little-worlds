@@ -1,8 +1,4 @@
 import {initTheme} from './theme.js';
-import {createWorkProps} from './work-props.js';
-import {initCodeMode} from './code-mode.js';
-import {createWorkerTeam} from './work-avatars.js';
-import {clone as cloneRig} from 'three/addons/utils/SkeletonUtils.js';
 import * as T from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
@@ -11,8 +7,8 @@ import {createFacialRig,createSleepLetters} from './expressions.js';
 import {avatarData,kitData} from './assets.generated.js';
 
 const $=s=>document.querySelector(s),host=$('#canvas-host'),stage=$('#stage');
-const state={world:'playground',mood:'curious',prop:'none',jam:false,pokes:0,pixel:false,sound:false,paused:false,codeMode:false,codingPhase:'idle'};
-let renderer,scene,camera,orbit,model,mixer,kit,actor,bones,props,sticks,worlds,facialRig,sleepLetters,workerTeam,ground,workProps;
+const state={world:'playground',mood:'curious',prop:'none',jam:false,pokes:0,pixel:false,sound:false,paused:false};
+let renderer,scene,camera,orbit,model,mixer,kit,actor,bones,props,sticks,worlds,facialRig,sleepLetters,ground;
 let activeBody,bodyName='Idle',faceName='Neutral',time=0,simTime=0,pokeTime=-20,bubbleUntil=6,faceFlashUntil=0,lastDrum=-1;
 const proceduralBase=new Map(),particleColliders=[];
 const bodyActions={},particles=[],pickables=[],kitParts={},moodMix={neutral:0,happy:0,sad:0,joyful:0,curious:1,sleepy:0};
@@ -45,12 +41,11 @@ async function init(){
 
  }
  kit=drums.scene;scene.add(kit);kit.visible=false;kit.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;o.userData.kind='drum';o.userData.instrument=o.name.toLowerCase().includes('cymbal')?'hat':o.name.toLowerCase().includes('snare')?'snare':'kick';pickables.push(o)}if(/Cymbal_wobble/.test(o.name))kitParts.cymbal=o;if(/Kick_pulse/.test(o.name))kitParts.kick=o;if(/Snare_response/.test(o.name))kitParts.snare=o;rememberRest(o)});
- const avatarTemplate=cloneRig(model);workerTeam=createWorkerTeam(scene,avatarTemplate,bodyActions.Idle.getClip());
  facialRig=createFacialRig(model,bones);sleepLetters=createSleepLetters(bones.AttachHead);
- ({props,sticks}=heldProps(bones));workProps=createWorkProps(bones);
+ ({props,sticks}=heldProps(bones));
  mixer.addEventListener('finished',e=>{if(e.action===activeBody)playBody(state.jam?'Drums':'Idle',false)});
  playBody('Idle',false);playFace('Curious');mixer.update(0);model.updateMatrixWorld(true);
- setupInput();setupUI();initCodeMode({onMode:setCodeMode,onActivity:setCodingPhase,onAgents:agents=>workerTeam.update(agents)});resizeObserver=new ResizeObserver(resize);resizeObserver.observe(stage);resize();
+ setupInput();setupUI();resizeObserver=new ResizeObserver(resize);resizeObserver.observe(stage);resize();
  $('#loading').classList.add('done');host.dataset.ready='true';
  renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();$('#error').hidden=false;$('#error p').textContent='The 3D view paused because the graphics connection was lost. Reload this page to wake Clawd up again.'});
  window.addEventListener('pagehide',()=>audioCtx?.suspend());document.addEventListener('visibilitychange',()=>{lastStep=null;if(document.hidden)audioCtx?.suspend();else if(state.sound)audioCtx?.resume()});
@@ -61,29 +56,17 @@ async function init(){
  // Small observable status values support accessibility and browser QA without exposing internals.
  host.dataset.engine='live-webgl';host.dataset.bones=Object.keys(bones).length;host.dataset.animations=Object.keys(bodyActions).length;
 }
-function setCodeMode(on){
- state.codeMode=on;state.codingPhase='';setWorld(on?'desk':'playground');setMood('neutral');
- ground.visible=!on;worlds.desk.children.slice(0,2).forEach(o=>o.visible=!on);workerTeam.show(on);workProps.update(on,state.codingPhase,simTime);
- scene.background=on?null:new T.Color(worlds.playground.userData.color);scene.fog=on?null:new T.Fog(worlds.playground.userData.color,32,75);
- if(on){camera.position.set(2.4,5.4,20);orbit.target.set(0,2.35,.45);orbit.update()}resize();
-}
-function setCodingPhase(phase){
- const previous=state.codingPhase;state.codingPhase=phase;if(!state.codeMode||previous===phase)return;
- host.dataset.codingPhase=phase;faceFlashUntil=0;
- if(phase==='complete'){playFace('Happy');playBody('Wave');}
- else{playFace(phase==='error'?'Sad':phase==='waiting'?'Surprised':phase==='writing'?'Neutral':'Curious');playBody('Idle',false);}
-}
-function resize(){if(!renderer)return;const w=host.clientWidth,h=host.clientHeight;if(!w||!h)return;const a=w/h,large=['mansion','pirate'].includes(state.world),f=state.codeMode?Math.max(8.6,10.6/a):Math.max(large?10.5:8.4,(large?14:12.5)/a);camera.left=-f*a/2;camera.right=f*a/2;camera.top=f/2;camera.bottom=-f/2;camera.updateProjectionMatrix();renderer.setPixelRatio(state.pixel?1:Math.min(devicePixelRatio,2));const width=state.pixel?Math.min(w,360):w;renderer.setSize(Math.round(width),Math.round(width/a),false);host.classList.toggle('pixelated',state.pixel)}
+function resize(){if(!renderer)return;const w=host.clientWidth,h=host.clientHeight;if(!w||!h)return;const a=w/h,large=['mansion','pirate'].includes(state.world),f=Math.max(large?10.5:8.4,(large?14:12.5)/a);camera.left=-f*a/2;camera.right=f*a/2;camera.top=f/2;camera.bottom=-f/2;camera.updateProjectionMatrix();renderer.setPixelRatio(state.pixel?1:Math.min(devicePixelRatio,2));const width=state.pixel?Math.min(w,360):w;renderer.setSize(Math.round(width),Math.round(width/a),false);host.classList.toggle('pixelated',state.pixel)}
 function playBody(name,once=true,rate=1){const next=bodyActions[name];if(!next)return;const prev=activeBody;if(prev&&prev!==next)prev.fadeOut(.22);next.reset().setEffectiveTimeScale(rate*(state.world==='moon'&&name==='Hop'?.65:1)).setEffectiveWeight(1).setLoop(once?T.LoopOnce:T.LoopRepeat,once?1:Infinity);next.clampWhenFinished=once;next.fadeIn(.22).play();activeBody=next;bodyName=name;host.dataset.action=name;if(name==='Drums')lastDrum=-1;updateProps()}
 function playFace(name){faceName=name;host.dataset.expression=name}
-function moodFace(){if(state.codeMode)return state.codingPhase==='complete'?'Happy':state.codingPhase==='error'?'Sad':state.codingPhase==='waiting'?'Surprised':state.codingPhase==='writing'?'Neutral':'Curious';return ({happy:'Happy',joyful:'Joyful',sad:'Sad',curious:'Curious',sleepy:'Sleepy',neutral:'Neutral'})[state.mood]}
+function moodFace(){return ({happy:'Happy',joyful:'Joyful',sad:'Sad',curious:'Curious',sleepy:'Sleepy',neutral:'Neutral'})[state.mood]}
 function setMood(name){state.mood=name;faceFlashUntil=0;playFace(moodFace());document.querySelectorAll('button[data-mood]').forEach(b=>{const on=b.dataset.mood===name;b.classList.toggle('selected',on);b.setAttribute('aria-pressed',on)});$('#mood-status').textContent=name==='neutral'?'Just chilling':'Feeling '+name;say(choose(moodLines[name]),name==='sleepy'?1.1:3.8);
  if(name==='joyful'){playBody('Cheer');burst(new T.Vector3(0,3.5,0),20,'confetti');chirp('happy')}
  else if(name==='happy'){playBody('Wave');burst(new T.Vector3(0,4.5,0),5,'heart');chirp('happy')}
  else{playBody(state.jam?'Drums':'Idle',false);chirp(name==='sad'?'sad':'hello')}
  host.dataset.mood=name;
 }
-function setWorld(name){if(!worlds[name])return;state.world=name;Object.entries(worlds).forEach(([n,g])=>g.visible=n===name);const c=worlds[name].userData.color;if(!scene.background)scene.background=new T.Color(c);else scene.background.set(c);if(scene.fog)scene.fog.color.set(c);const floor=scene.children.find(o=>o.isMesh&&o.geometry.type==='PlaneGeometry');floor.material.color.set(c);floor.position.y=name==='pirate'?-1.5:-.66;stage.classList.toggle('night',['moon','stage','mansion'].includes(name));stage.classList.toggle('ocean',name==='pirate');$('#scene-label').innerHTML='<i></i>'+sceneNames[name];document.querySelectorAll('button[data-scene]').forEach(b=>{const on=b.dataset.scene===name;b.classList.toggle('active',on);b.setAttribute('aria-pressed',on)});setJam(name==='stage',false);playBody(state.jam?'Drums':'Idle',false);resetCamera();resize();say(({playground:'home sweet little home.',garden:'a little fresh air feels good.',desk:'very important things. click clack.',moon:'one small hop for a little guy.',stage:'one, two… one, two, three, four!',mansion:'that ghost seems… quite polite.',pirate:'aye aye. tiny captain on deck.'})[name]);host.dataset.scene=name}
+function setWorld(name){if(!worlds[name])return;state.world=name;Object.entries(worlds).forEach(([n,g])=>g.visible=n===name);const c=worlds[name].userData.color;scene.background.set(c);scene.fog.color.set(c);const floor=scene.children.find(o=>o.isMesh&&o.geometry.type==='PlaneGeometry');floor.material.color.set(c);floor.position.y=name==='pirate'?-1.5:-.66;stage.classList.toggle('night',['moon','stage','mansion'].includes(name));stage.classList.toggle('ocean',name==='pirate');$('#scene-label').innerHTML='<i></i>'+sceneNames[name];document.querySelectorAll('button[data-scene]').forEach(b=>{const on=b.dataset.scene===name;b.classList.toggle('active',on);b.setAttribute('aria-pressed',on)});setJam(name==='stage',false);playBody(state.jam?'Drums':'Idle',false);resetCamera();resize();say(({playground:'home sweet little home.',garden:'a little fresh air feels good.',desk:'very important things. click clack.',moon:'one small hop for a little guy.',stage:'one, two… one, two, three, four!',mansion:'that ghost seems… quite polite.',pirate:'aye aye. tiny captain on deck.'})[name]);host.dataset.scene=name}
 function setJam(on,announce=true){state.jam=on;kit.visible=on;$('#jam').setAttribute('aria-pressed',on);$('#jam').querySelector('span:nth-child(2)').textContent=on?'Take a little break':'Start a little band';if(worlds){worlds.desk.visible=state.world==='desk'&&!on;if(state.world==='desk'&&on)worlds.playground.visible=true;else if(state.world!=='playground')worlds.playground.visible=false}playBody(on?'Drums':'Idle',false);updateProps();if(announce)say(on?'born to be a little drummer.':'and that’s a wrap.');host.dataset.jamming=on}
 function updateProps(){if(!props)return;for(const [name,g] of Object.entries(props))g.visible=name===state.prop&&(!state.jam||name==='headphones');sticks.forEach(g=>g.visible=state.jam)}
 function resetCamera(){orbit.autoRotate=false;$('#orbit').setAttribute('aria-pressed','false');orbit.reset();if(['mansion','pirate'].includes(state.world)){orbit.target.y=2.45;camera.position.y+=.75;orbit.update()}camera.zoom=1;camera.updateProjectionMatrix()}
@@ -123,16 +106,7 @@ function step(dt){
  const isSleeping=state.mood==='sleepy'&&faceFlashUntil===0;
  sleepLetters.update(isSleeping,dt);host.dataset.sleepLetters=isSleeping?'3':'0';
  if(bodyName==='Idle'&&!state.jam){bones.Face.position.x+=pointer.x*.065*(1-sleep);bones.HandL.position.y+=sleep*-.12;bones.HandR.position.y+=sleep*-.12;
-   if(state.world==='desk'&&(!state.codeMode||['writing','tool'].includes(state.codingPhase))){const tap=Math.floor(simTime*6)%2;bones.HandL.position.x+=1.4;bones.HandR.position.x-=1.4;bones.HandL.position.z+=1.3;bones.HandR.position.z+=1.3;bones.HandL.position.y-=.3+tap*.15;bones.HandR.position.y-=.3+(1-tap)*.15}
- }
- if(state.codeMode){
-  const phase=state.codingPhase;
-  if(['thinking','researching','reading','delegating'].includes(phase)){bones.Face.position.x+=Math.round(Math.sin(simTime*(phase==='reading'?2:.7))*2)*.025;bones.Body.rotation.z+=phase==='thinking'?.035:0}
-  if(phase==='waiting'){bones.HandR.position.y+=.5;bones.HandR.rotation.z-=.2}
-  if(phase==='thinking'){bones.HandR.position.x-=.4;bones.HandR.position.y+=.5;bones.HandR.position.z+=.3}
-  if(['reading','researching'].includes(phase))bones.HandR.position.y+=.22;
-  workProps.update(true,phase,simTime);
-  workerTeam.step(dt,simTime);
+   if(state.world==='desk'){const tap=Math.floor(simTime*6)%2;bones.HandL.position.x+=1.4;bones.HandR.position.x-=1.4;bones.HandL.position.z+=1.3;bones.HandR.position.z+=1.3;bones.HandL.position.y-=.3+tap*.15;bones.HandR.position.y-=.3+(1-tap)*.15}
  }
  if(state.world==='moon'&&bodyName==='Hop')bones.Root.position.y*=1.6;
  const since=simTime-pokeTime;actor.rotation.z=since<.7?Math.sin(since*24)*.045*(1-since/.7):0;actor.rotation.x=0;actor.position.y=0;kit.rotation.set(0,0,0);kit.position.y=0;

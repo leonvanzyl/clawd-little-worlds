@@ -10,5 +10,3 @@ inspect-face.mjs
 .DS_Store
 Thumbs.db
 
-projects/
-.test-data/

@@ -1,26 +1,17 @@
 {
   "name": "clawd-little-worlds",
   "version": "1.0.0",
-  "description": "Interactive 3D Clawd playground and local Claude Code studio with a live browser preview.",
+  "description": "Interactive 3D Clawd playground.",
   "private": true,
   "scripts": {
     "build": "node build.mjs",
-    "check": "node checks/expressions.mjs && node --test checks/studio.mjs checks/markdown.mjs checks/jev-triage.mjs",
-    "check:triage": "node --test checks/jev-triage.mjs",
-    "check:triage:live": "node checks/jev-triage-live.mjs",
-    "start": "node server.mjs"
+    "check": "node checks/expressions.mjs"
   },
   "keywords": [],
   "author": "",
   "type": "module",
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.3.278",
-    "dompurify": "^3.4.15",
     "esbuild": "^0.28.2",
-    "marked": "^18.0.13",
     "three": "^0.186.0"
-  },
-  "devDependencies": {
-    "jsdom": "^30.1.0"
   }
 }
